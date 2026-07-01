@@ -69,7 +69,15 @@ Matching is a **latency-bound pointer chase** — `state = next[state + class(by
 
 ## Citing
 
-If this package is useful in your work, please cite it — see [`CITATION.bib`](CITATION.bib).
+```bibtex
+@software{AhoCorasickILP_jl,
+  author  = {Michael, Demetrius},
+  title   = {{AhoCorasickILP.jl}: Native-Julia Aho\textendash{}Corasick multi-pattern search via multi-stream instruction-level parallelism},
+  url     = {https://github.com/D3MZ/AhoCorasickILP.jl},
+  version = {0.1.0},
+  year    = {2026}
+}
+```
 
 ## License
 
