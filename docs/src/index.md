@@ -23,10 +23,15 @@ using FastAhoCorasick
 
 a = build(["trading", "strategy", "финансы", "市场"])
 count_matches(a, "TRADING Strategy on the 市场")          # => 3   (multi-stream, 0 alloc)
-count_matches_serial(a, "TRADING Strategy on the 市场")   # => 3   (single stream)
+is_match(a, "no keywords here")                          # => false
+findfirst_match(a, "xx trading")                         # => AcMatch(1, 4, 10)
+collect_matches(a, "trading 市场")                       # => [AcMatch(1,1,7), AcMatch(4,9,14)]
 
 w = build(["buy", "sell"]; weights = [1.0, -1.0])
 sum_weights(w, "buy buy sell")                           # => 1.0
+
+cs = build(["ABC"]; casesensitive = true)
+count_matches(cs, "abc ABC")                             # => 1
 ```
 
 ## How it works

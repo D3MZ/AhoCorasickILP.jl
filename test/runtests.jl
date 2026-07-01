@@ -77,7 +77,18 @@ end
         count_matches_serial(a, p, n); count_matches(a, p, n, Val(8))   # warmup
         @test (@allocated count_matches_serial(a, p, n)) == 0
         @test (@allocated count_matches(a, p, n, Val(8))) == 0
+        is_match(a, p, n); findfirst_match(a, p, n)
+        @test (@allocated is_match(a, p, n)) == 0
+        @test (@allocated findfirst_match(a, p, n)) == 0
     end
+    # each_match is zero-alloc when the callback accumulates into a Ref (no boxed local)
+    function eachcount(auto, bytes)
+        c = Ref(0)
+        each_match((p, s, e) -> (c[] += 1), auto, bytes)
+        c[]
+    end
+    eachcount(a, data)
+    @test (@allocated eachcount(a, data)) == 0
 end
 
 @testset "all public method forms and stream widths" begin
@@ -100,6 +111,41 @@ end
     # weighted byte-vector form
     w = build(["trading", "market"]; weights=[2.0, 3.0])
     @test sum_weights(w, bytes) == sum_weights(w, s)
+end
+
+@testset "match inspection: is_match / findfirst_match / each_match / collect_matches" begin
+    a = build(["trading", "strategy", "финансы", "市场"])
+    s = "trading 市场"
+    @test is_match(a, s)
+    @test !is_match(a, "nothing here")
+    @test findfirst_match(a, "xx trading") == AcMatch(1, 4, 10)
+    @test findfirst_match(a, "市场 first") == AcMatch(4, 1, 6)
+    @test findfirst_match(a, "no keywords") === nothing
+    ms = collect_matches(a, s)
+    @test ms == [AcMatch(1, 1, 7), AcMatch(4, 9, 14)]
+    # spans are exact byte ranges; verify against the source text
+    for m in ms
+        @test codeunits(s)[m.start:m.stop] == codeunits(["trading","strategy","финансы","市场"][m.pattern])
+    end
+    # each_match with a non-allocating accumulator, and the byte-vector form
+    tot = Ref(0)
+    each_match((p, st, en) -> (tot[] += p), a, Vector{UInt8}(codeunits(s)))
+    @test tot[] == 1 + 4
+    @test is_match(a, Vector{UInt8}(codeunits(s)))
+    @test collect_matches(a, Vector{UInt8}(codeunits("市场"))) == [AcMatch(4, 1, 6)]
+    # overlapping-suffix pattern: a match reported via a fail link keeps the right span
+    b = build(["she", "he"])
+    @test collect_matches(b, "ushers") == [AcMatch(1, 2, 4)]   # leftmost non-overlapping "she"
+end
+
+@testset "case-sensitive mode" begin
+    ci = build(["ABC"])                       # default: ASCII case-insensitive
+    cs = build(["ABC"]; casesensitive=true)
+    @test count_matches_serial(ci, "xxabcABC") == 2
+    @test count_matches_serial(cs, "xxabcABC") == 1          # only the exact-case "ABC"
+    @test findfirst_match(cs, "abcABC") == AcMatch(1, 4, 6)
+    @test count_matches(cs, "abcABCabc"; streams=4) == 1
+    @test sum_weights(build(["ABC"]; weights=[2.0], casesensitive=true), "abcABC") == 2.0
 end
 
 @testset "empty / edge inputs" begin

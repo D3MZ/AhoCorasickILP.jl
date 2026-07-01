@@ -9,18 +9,25 @@ Matching operates on raw UTF-8 **bytes** and folds **ASCII** case only, mirrorin
 `aho_corasick`'s `.ascii_case_insensitive(true)` — so non-ASCII (Cyrillic/CJK/Arabic)
 keywords match identically byte-for-byte.
 
-The count semantics match `AhoCorasick::find_iter().count()` in the crate's default
+The count/iteration semantics match `AhoCorasick::find_iter()` in the crate's default
 `MatchKind::Standard`: leftmost, non-overlapping matches.
+
+Besides counting and weighted scoring, the automaton supports [`is_match`](@ref),
+[`findfirst_match`](@ref), a zero-allocation callback iterator [`each_match`](@ref), and a
+collecting [`collect_matches`](@ref) that returns match spans and which pattern hit. Case
+folding is ASCII-only by default and can be disabled with `build(...; casesensitive=true)`.
 
 # Example
 ```julia
 a = build(["trading", "strategy", "финансы", "市场"])
 count_matches(a, "trading strategy on the 市场")          # => 3
+collect_matches(a, "trading 市场")                        # => [AcMatch(1,1,7), AcMatch(4,9,14)]
 ```
 """
 module FastAhoCorasick
 
-export Automaton, build, count_matches, count_matches_serial, sum_weights
+export Automaton, AcMatch, build, count_matches, count_matches_serial, sum_weights,
+    is_match, findfirst_match, each_match, collect_matches
 
 using Base.Cartesian: @nexprs
 
@@ -45,37 +52,57 @@ struct Automaton
     classof::Vector{UInt8}
     next::Vector{UInt32}      # premultiplied transition table
     weightp::Vector{Float64}  # weight indexed by (premultiplied state) + 1
+    patid::Vector{UInt32}     # 1-based pattern id at a match state (indexed by premult state + 1)
+    patlen::Vector{UInt32}    # matched pattern length in bytes, same indexing
     width::Int                # number of byte classes
     thresh::UInt32            # state < thresh  <=>  match state
     root::UInt32              # premultiplied root id
     nstates::Int
+    casesensitive::Bool
 end
 
 """
-    build(patterns; weights=nothing) -> Automaton
+    AcMatch(pattern, start, stop)
+
+A single match: `pattern` is the 1-based index into the pattern list passed to [`build`](@ref),
+and `start:stop` is the inclusive 1-based byte range of the occurrence in the haystack.
+"""
+struct AcMatch
+    pattern::Int
+    start::Int
+    stop::Int
+end
+
+"""
+    build(patterns; weights=nothing, casesensitive=false) -> Automaton
 
 Compile `patterns` (a vector of strings) into an [`Automaton`]. Matching is
-ASCII-case-insensitive. If `weights` is given (one `Float64` per pattern), the automaton
-can be used with [`sum_weights`](@ref).
+ASCII-case-insensitive unless `casesensitive=true`. If `weights` is given (one `Float64`
+per pattern), the automaton can be used with [`sum_weights`](@ref).
 """
-function build(patterns::Vector{<:AbstractString}; weights::Union{Nothing,Vector{Float64}}=nothing)
+function build(patterns::Vector{<:AbstractString}; weights::Union{Nothing,Vector{Float64}}=nothing,
+               casesensitive::Bool=false)
     isempty(patterns) && throw(ArgumentError("patterns must be non-empty"))
     weights === nothing || length(weights) == length(patterns) ||
         throw(ArgumentError("weights must have one entry per pattern"))
 
-    # --- alphabet reduction: one class per distinct folded pattern byte ---
+    foldb(b::UInt8) = casesensitive ? b : fold(b)
+
+    # --- alphabet reduction: one class per distinct (folded) pattern byte ---
     classof = zeros(UInt8, 256)
     k = 0
     for pat in patterns, ch in codeunits(pat)
-        b = fold(ch)
+        b = foldb(ch)
         if classof[Int(b)+1] == 0
             k += 1
             classof[Int(b)+1] = UInt8(k)
         end
     end
-    for b in 0x61:0x7a                      # mirror uppercase onto lowercase class
-        c = classof[Int(b)+1]
-        c != 0 && (classof[Int(b)-0x20+1] = c)
+    if !casesensitive
+        for b in 0x61:0x7a                  # mirror uppercase onto lowercase class
+            c = classof[Int(b)+1]
+            c != 0 && (classof[Int(b)-0x20+1] = c)
+        end
     end
     W = k + 1
 
@@ -85,10 +112,11 @@ function build(patterns::Vector{<:AbstractString}; weights::Union{Nothing,Vector
     goto = [Dict{Int,Int}()]                # state 1 = root
     outpat = [0]
     addstate!() = (push!(goto, Dict{Int,Int}()); push!(outpat, 0); length(goto))
+    plen = UInt32[ncodeunits(pat) for pat in patterns]   # pattern byte lengths
     for (pid, pat) in enumerate(patterns)
         s = 1
         for ch in codeunits(pat)
-            c = classix(fold(ch))
+            c = classix(foldb(ch))
             nxt = get(goto[s], c, 0)
             if nxt == 0
                 nxt = addstate!()
@@ -151,17 +179,22 @@ function build(patterns::Vector{<:AbstractString}; weights::Union{Nothing,Vector
 
     next = Vector{UInt32}(undef, n * W)
     weightp = zeros(Float64, n * W)
+    patid = zeros(UInt32, n * W)
+    patlen = zeros(UInt32, n * W)
     for s in 1:n
         prem = (remap[s] - 1) * W
         for c in 0:k
             next[prem + c + 1] = UInt32((remap[trans[(s-1)*W + c + 1]] - 1) * W)
         end
-        if out[s] != 0 && weights !== nothing
-            weightp[prem + 1] = weights[out[s]]
+        if out[s] != 0
+            patid[prem + 1] = UInt32(out[s])
+            patlen[prem + 1] = plen[out[s]]
+            weights !== nothing && (weightp[prem + 1] = weights[out[s]])
         end
     end
 
-    Automaton(classof, next, weightp, W, UInt32(m * W), UInt32((remap[1] - 1) * W), n)
+    Automaton(classof, next, weightp, patid, patlen, W, UInt32(m * W),
+              UInt32((remap[1] - 1) * W), n, casesensitive)
 end
 
 # ---------------------------------------------------------------------------
@@ -305,5 +338,94 @@ function sum_weights(a::Automaton, ptr::Ptr{UInt8}, n::Integer)
 end
 sum_weights(a::Automaton, data::AbstractString) = GC.@preserve data sum_weights(a, pointer(data), ncodeunits(data))
 sum_weights(a::Automaton, data::AbstractVector{UInt8}) = GC.@preserve data sum_weights(a, pointer(data), length(data))
+
+# ---------------------------------------------------------------------------
+# Match inspection: is_match / first match / iterate spans. All share the single
+# dependent-load hot loop; only the rare match branch differs.
+# ---------------------------------------------------------------------------
+
+"""
+    is_match(a::Automaton, data) -> Bool
+
+Return `true` as soon as any pattern matches, scanning left to right. Zero allocations.
+"""
+function is_match(a::Automaton, ptr::Ptr{UInt8}, n::Integer)
+    classof = a.classof; next = a.next; thresh = a.thresh; root = a.root
+    state = root
+    @inbounds for i in 1:n
+        state = next[Int(state) + Int(classof[Int(unsafe_load(ptr, i))+1]) + 1]
+        state < thresh && return true
+    end
+    false
+end
+
+"""
+    findfirst_match(a::Automaton, data) -> Union{AcMatch,Nothing}
+
+Return the first (leftmost-ending) match as an [`AcMatch`](@ref), or `nothing`. Zero allocations.
+"""
+function findfirst_match(a::Automaton, ptr::Ptr{UInt8}, n::Integer)
+    classof = a.classof; next = a.next; thresh = a.thresh; root = a.root
+    patid = a.patid; patlen = a.patlen
+    state = root
+    @inbounds for i in 1:n
+        state = next[Int(state) + Int(classof[Int(unsafe_load(ptr, i))+1]) + 1]
+        if state < thresh
+            idx = Int(state) + 1
+            return AcMatch(Int(patid[idx]), i - Int(patlen[idx]) + 1, i)
+        end
+    end
+    nothing
+end
+
+"""
+    each_match(f, a::Automaton, data)
+
+Call `f(pattern, start, stop)` for every leftmost non-overlapping match, in order, where
+`pattern` is the 1-based pattern index and `start:stop` the inclusive 1-based byte span.
+The building block for [`collect_matches`](@ref).
+
+The scan is allocation-free; to keep the whole call zero-allocation, have `f` accumulate into
+a `Ref` (or array) rather than reassigning a captured local (which Julia boxes):
+
+```julia
+hits = Ref(0)
+each_match((p, s, e) -> (hits[] += 1), a, data)   # 0 allocations
+```
+"""
+function each_match(f::F, a::Automaton, ptr::Ptr{UInt8}, n::Integer) where {F}
+    classof = a.classof; next = a.next; thresh = a.thresh; root = a.root
+    patid = a.patid; patlen = a.patlen
+    state = root
+    @inbounds for i in 1:n
+        state = next[Int(state) + Int(classof[Int(unsafe_load(ptr, i))+1]) + 1]
+        if state < thresh
+            idx = Int(state) + 1
+            f(Int(patid[idx]), i - Int(patlen[idx]) + 1, i)
+            state = root
+        end
+    end
+    nothing
+end
+
+"""
+    collect_matches(a::Automaton, data) -> Vector{AcMatch}
+
+Collect every leftmost non-overlapping match with its pattern index and byte span. Allocates
+the result vector; the scan itself uses the same zero-allocation kernel as [`each_match`](@ref).
+"""
+function collect_matches(a::Automaton, ptr::Ptr{UInt8}, n::Integer)
+    out = AcMatch[]
+    each_match((p, s, e) -> push!(out, AcMatch(p, s, e)), a, ptr, n)
+    out
+end
+
+# --- convenience methods over strings / byte vectors ---
+for f in (:is_match, :findfirst_match, :collect_matches)
+    @eval $f(a::Automaton, data::AbstractString) = GC.@preserve data $f(a, pointer(data), ncodeunits(data))
+    @eval $f(a::Automaton, data::AbstractVector{UInt8}) = GC.@preserve data $f(a, pointer(data), length(data))
+end
+each_match(f, a::Automaton, data::AbstractString) = GC.@preserve data each_match(f, a, pointer(data), ncodeunits(data))
+each_match(f, a::Automaton, data::AbstractVector{UInt8}) = GC.@preserve data each_match(f, a, pointer(data), length(data))
 
 end # module

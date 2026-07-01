@@ -4,6 +4,24 @@ This page records how FastAhoCorasick relates to the two other Aho-Corasick impl
 it is most often weighed against: Rust's `aho-corasick` crate and the registered pure-Julia
 `AhoCorasick.jl`.
 
+## Feature matrix
+
+| Capability | Rust `aho-corasick` | `AhoCorasick.jl` 0.1.1 | FastAhoCorasick |
+|---|:---:|:---:|:---:|
+| Count non-overlapping | ✓ | ✓ | ✓ |
+| Match spans + which pattern | ✓ | ✓ | ✓ (`findfirst_match`, `each_match`, `collect_matches`) |
+| `is_match` / first match | ✓ | – | ✓ |
+| Overlapping enumeration | ✓ | ✓ | ✗ |
+| Per-pattern attached keys | – | ✓ | ✗ |
+| Weighted score | – | – | ✓ (`sum_weights`) |
+| Case-insensitive | ✓ ASCII | ✓ Unicode | ✓ ASCII |
+| Case-sensitive | ✓ | ✓ | ✓ (`casesensitive=true`) |
+| Replace / streaming I/O | ✓ | ✗ | ✗ |
+| Multibyte-UTF-8 safe | ✓ | ✗ | ✓ |
+| Allocation-free matching | ✗ (FFI 3/call) | ✗ | ✓ |
+| Time complexity | O(n) | O(n²) | O(n) |
+| Language · license | Rust · MIT/Unlicense | Julia · GPLv3 | Julia · MIT |
+
 ## vs. Rust `aho-corasick`
 
 FastAhoCorasick's serial kernel is a like-for-like port of the crate's DFA (byte-class
