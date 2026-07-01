@@ -97,6 +97,42 @@ window. This is provably exact even for periodic / self-overlapping patterns lik
 where the two trajectories alternate forever and never reconverge — verified against a naive
 reference matcher in the [test suite](test/runtests.jl).
 
+## Comparison with the other Julia Aho-Corasick package
+
+The General registry has one other Aho-Corasick package, [`AhoCorasick.jl`](https://github.com/Wilfridovich17/AhoCorasick.jl) (v0.1.1, GPLv3). It solves a **different** problem, and the two are not at feature parity:
+
+| | FastAhoCorasick | AhoCorasick.jl 0.1.1 |
+|---|---|---|
+| Match model | leftmost **non-overlapping** | all **overlapping** occurrences |
+| Returns | match **count** / weighted **score** | `Vector{Match}` with **positions** + optional **keys** |
+| Match positions & per-pattern metadata | ✗ | ✓ |
+| Case folding | ASCII (matches Rust's crate) | Unicode `lowercase` |
+| Non-ASCII / multibyte input | ✓ (byte-level) | ✗ — throws `StringIndexError` (indexes `text[2:end]`) |
+| Time complexity | **O(n)** | **O(n²)** (copies `text[2:end]` every char) |
+| Allocations | **0** | `Vector{Match}` + O(n²) string copies |
+| Precompiles cleanly | ✓ | ✗ (duplicate `include`) |
+| License | MIT | GPLv3 |
+
+**What AhoCorasick.jl does that this package doesn't:** return match *positions* and attach a *key* to each pattern, enumerate *overlapping* matches, and case-fold beyond ASCII. If you need spans or per-pattern metadata, it has features FastAhoCorasick omits by design. **What this package does that it doesn't:** zero-allocation, O(n), multibyte-safe, weighted scoring, and orders-of-magnitude more throughput.
+
+Measured on ASCII input (AhoCorasick.jl errors on the multilingual corpus; Apple M1 Max, 64 KB):
+
+| impl | min time | throughput | allocations | matches |
+|---|---:|---:|---:|---:|
+| **FastAhoCorasick ILP ×8** | **0.026 ms** | **2,524 MB/s** | **0** | 7,800 |
+| FastAhoCorasick serial | 0.142 ms | 461 MB/s | 0 | 7,800 |
+| AhoCorasick.jl 0.1.1 | 1,478 ms | 0.04 MB/s | 2.1 GB | 7,800 |
+
+**~57,000× faster and allocation-free** (counts agree here because these keywords don't physically overlap; they diverge when matches overlap). AhoCorasick.jl's `text = text[2:end]` recopies the rest of the input on every character, so its cost is quadratic:
+
+| input size | AhoCorasick.jl 0.1.1 | FastAhoCorasick (O(n)) |
+|---:|---:|---:|
+| 2 KB | 1.5 ms | <0.01 ms |
+| 8 KB | 27 ms | <0.01 ms |
+| 32 KB | 367 ms | ~0.07 ms |
+
+Reproduce with `julia -e 'using Pkg; Pkg.add("AhoCorasick")'` then `julia bench/compare_libraries.jl`.
+
 ## Fairness
 
 Both sides are single-threaded, single-core, and matched on capability (byte-level UTF-8,
