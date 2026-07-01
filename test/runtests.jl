@@ -1,4 +1,4 @@
-using FastAhoCorasick
+using AhoCorasickILP
 using Test
 
 # Reference: naive leftmost non-overlapping count over ASCII-folded bytes.

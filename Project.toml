@@ -1,10 +1,10 @@
-name = "FastAhoCorasick"
+name = "AhoCorasickILP"
 uuid = "59010d27-302b-4ff9-bf4c-5d4b27055d2c"
 authors = ["Demetrius Michael <arrrwalktheplank@gmail.com>"]
 version = "0.1.0"
 
 [compat]
-julia = "1.9"
+julia = "1.10"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

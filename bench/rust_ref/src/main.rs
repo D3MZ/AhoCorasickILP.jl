@@ -1,5 +1,5 @@
 // Native Rust reference benchmark for `aho-corasick` (no FFI — the fairest possible
-// comparison). Reads a corpus file, builds the same automaton FastAhoCorasick uses,
+// comparison). Reads a corpus file, builds the same automaton AhoCorasickILP uses,
 // and reports the minimum wall time of `find_iter().count()` over many runs.
 use aho_corasick::AhoCorasick;
 use std::time::Instant;

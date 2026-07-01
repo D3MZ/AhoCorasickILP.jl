@@ -1,12 +1,12 @@
 # Comparison with other Aho-Corasick implementations
 
-This page records how FastAhoCorasick relates to the two other Aho-Corasick implementations
+This page records how AhoCorasickILP relates to the two other Aho-Corasick implementations
 it is most often weighed against: Rust's `aho-corasick` crate and the registered pure-Julia
 `AhoCorasick.jl`.
 
 ## Feature matrix
 
-| Capability | Rust `aho-corasick` | `AhoCorasick.jl` 0.1.1 | FastAhoCorasick |
+| Capability | Rust `aho-corasick` | `AhoCorasick.jl` 0.1.1 | AhoCorasickILP |
 |---|:---:|:---:|:---:|
 | Count non-overlapping | ✓ | ✓ | ✓ |
 | Match spans + which pattern | ✓ | ✓ | ✓ (`findfirst_match`, `each_match`, `collect_matches`) |
@@ -24,7 +24,7 @@ it is most often weighed against: Rust's `aho-corasick` crate and the registered
 
 ## vs. Rust `aho-corasick`
 
-FastAhoCorasick's serial kernel is a like-for-like port of the crate's DFA (byte-class
+AhoCorasickILP's serial kernel is a like-for-like port of the crate's DFA (byte-class
 alphabet reduction, premultiplied state ids, match-state-first ordering), so on the raw
 single-stream loop the two sit within ~1.15× of each other — both are bounded by the same
 one-dependent-load-per-byte L1 latency. The single-thread multi-stream ILP kernel then
@@ -48,7 +48,7 @@ behave identically.
 other Aho-Corasick package in the General registry. It solves a **different** problem, so the
 two are not at feature parity:
 
-| | FastAhoCorasick | AhoCorasick.jl 0.1.1 |
+| | AhoCorasickILP | AhoCorasick.jl 0.1.1 |
 |---|---|---|
 | Match model | leftmost **non-overlapping** | all **overlapping** occurrences |
 | Returns | match **count** / weighted **score** | `Vector{Match}` with **positions** + optional **keys** |
@@ -63,7 +63,7 @@ two are not at feature parity:
 **What `AhoCorasick.jl` offers that this package does not:** match *positions* (`start`,
 `length`), an arbitrary *key* attached to each pattern and returned per match, *overlapping*
 enumeration, and case folding beyond ASCII. If you need spans or per-pattern metadata, it has
-features FastAhoCorasick omits by design.
+features AhoCorasickILP omits by design.
 
 **What this package offers that it does not:** zero allocations, O(n) scaling, multibyte-safe
 byte-level matching, weighted scoring, and orders-of-magnitude more throughput.
@@ -75,14 +75,14 @@ byte-level matching, weighted scoring, and orders-of-magnitude more throughput.
 
 | implementation | min time | throughput | allocations | matches |
 |---|---:|---:|---:|---:|
-| **FastAhoCorasick ILP ×8** | **0.027 ms** | **2,465 MB/s** | **0** | 7,900 |
-| FastAhoCorasick serial | 0.153 ms | 434 MB/s | 0 | 7,900 |
+| **AhoCorasickILP ×8 streams** | **0.027 ms** | **2,465 MB/s** | **0** | 7,900 |
+| AhoCorasickILP serial | 0.153 ms | 434 MB/s | 0 | 7,900 |
 | Rust `aho-corasick` 1.1 | 0.226 ms | 293 MB/s | 0 | 7,900 |
 | AhoCorasick.jl 0.1.1 | 2,200 ms | 0.03 MB/s | 2.1 GB | 7,900 |
 
 That is roughly **80,000× faster and allocation-free**. The counts agree here only because
 these keywords do not physically overlap; they diverge when matches overlap (AhoCorasick.jl
-counts every overlapping occurrence, FastAhoCorasick counts non-overlapping like Rust's
+counts every overlapping occurrence, AhoCorasickILP counts non-overlapping like Rust's
 `find_iter`).
 
 ### Why the quadratic blow-up
@@ -90,7 +90,7 @@ counts every overlapping occurrence, FastAhoCorasick counts non-overlapping like
 `AhoCorasick.jl`'s search loop does `text = text[2:end]` on every character, allocating a fresh
 copy of the remaining input each step. Cost therefore grows with the square of the input:
 
-| input size | AhoCorasick.jl 0.1.1 | FastAhoCorasick (O(n), flat throughput) |
+| input size | AhoCorasick.jl 0.1.1 | AhoCorasickILP (O(n), flat throughput) |
 |---:|---:|---:|
 | 2 KB | 1.5 ms | <0.01 ms |
 | 8 KB | 27 ms | <0.01 ms |

@@ -1,9 +1,14 @@
 """
-    FastAhoCorasick
+    AhoCorasickILP
 
 A native-Julia Aho-Corasick multi-pattern string matcher with **zero heap allocations**
 in the match hot loop and a single-thread **multi-stream ILP** kernel that outperforms
 Rust's `aho-corasick` crate on this latency-bound workload.
+
+The name is the algorithm plus its edge: **Aho-Corasick** matching accelerated by
+**instruction-level parallelism** (ILP) — several independent DFA chains advanced in one
+loop on a single thread so the CPU keeps multiple dependent loads in flight, hiding the
+memory latency that bounds a naive scan. Not multithreading.
 
 Matching operates on raw UTF-8 **bytes** and folds **ASCII** case only, mirroring
 `aho_corasick`'s `.ascii_case_insensitive(true)` — so non-ASCII (Cyrillic/CJK/Arabic)
@@ -24,7 +29,7 @@ count_matches(a, "trading strategy on the 市场")          # => 3
 collect_matches(a, "trading 市场")                        # => [AcMatch(1,1,7), AcMatch(4,9,14)]
 ```
 """
-module FastAhoCorasick
+module AhoCorasickILP
 
 export Automaton, AcMatch, build, count_matches, count_matches_serial, sum_weights,
     is_match, findfirst_match, each_match, collect_matches

@@ -1,3 +1,3 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-FastAhoCorasick = "59010d27-302b-4ff9-bf4c-5d4b27055d2c"
+AhoCorasickILP = "59010d27-302b-4ff9-bf4c-5d4b27055d2c"

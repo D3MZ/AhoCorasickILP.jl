@@ -1,4 +1,4 @@
-# FastAhoCorasick.jl
+# AhoCorasickILP.jl
 
 A native-Julia [Aho–Corasick](https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm)
 multi-pattern matcher with **zero heap allocations** in the match loop and a single-thread
@@ -13,13 +13,13 @@ Counts follow `MatchKind::Standard`: leftmost, non-overlapping — identical to 
 ## Installation
 
 ```julia
-pkg> add https://github.com/D3MZ/FastAhoCorasick.jl
+pkg> add https://github.com/D3MZ/AhoCorasickILP.jl
 ```
 
 ## Quick start
 
 ```julia
-using FastAhoCorasick
+using AhoCorasickILP
 
 a = build(["trading", "strategy", "финансы", "市场"])
 count_matches(a, "TRADING Strategy on the 市场")          # => 3   (multi-stream, 0 alloc)
@@ -44,7 +44,7 @@ independent DFA chains in one loop so the out-of-order engine overlaps their loa
 instruction-level parallelism on a single thread, not multithreading. Exactness at the slice
 seams is preserved by replaying each boundary from the true entering state.
 
-See the [README](https://github.com/D3MZ/FastAhoCorasick.jl#how-it-works) for the full write-up
+See the [README](https://github.com/D3MZ/AhoCorasickILP.jl#how-it-works) for the full write-up
 and benchmark plot, [Comparison](comparison.md) for how it stacks up against Rust's
 `aho-corasick` and the registry's `AhoCorasick.jl`, and the [API reference](@ref) for the
 functions.

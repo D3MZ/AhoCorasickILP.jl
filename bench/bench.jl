@@ -1,11 +1,11 @@
-# Head-to-head benchmark: FastAhoCorasick (native Julia) vs the `aho-corasick` Rust crate.
+# Head-to-head benchmark: AhoCorasickILP (native Julia) vs the `aho-corasick` Rust crate.
 # Runs the native Rust reference binary (built separately) and the Julia kernels on the
 # SAME byte-identical corpus, using @allocated + a min-of-many-runs timer to reduce noise.
 #
 #   julia --project=. bench/bench.jl [corpus_path] [rust_min_ns]
 #
 # If rust_min_ns is omitted, bench.jl runs bench/rust_ref/target/release/ac_ref itself.
-using FastAhoCorasick
+using AhoCorasickILP
 using Printf
 
 const KEYWORDS = ["trading","strategy","finance","market","the","and","for","with","from","invest"]

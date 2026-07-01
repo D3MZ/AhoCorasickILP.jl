@@ -18,12 +18,12 @@
 <text x="790.0" y="304" text-anchor="middle" font-size="10.5" fill="#999">10000</text>
 <text x="520.0" y="324" text-anchor="middle" font-size="11.5" fill="#666">milliseconds (log scale)</text>
 <rect x="250.0" y="81.88" width="38.677705200216735" height="30.240000000000002" rx="3" fill="#159a56"/>
-<text x="236" y="96.0" text-anchor="end" font-size="13" font-weight="600" fill="#222">FastAhoCorasick — ILP ×8</text>
+<text x="236" y="96.0" text-anchor="end" font-size="13" font-weight="600" fill="#222">AhoCorasickILP — ×8 streams</text>
 <text x="236" y="111.0" text-anchor="end" font-size="10.5" fill="#999">Julia · this package</text>
 <text x="296.67770520021674" y="101.0" font-size="12" font-weight="600" fill="#333">0.027 ms</text>
 <text x="296.67770520021674" y="115.0" font-size="10" fill="#aaa">baseline</text>
 <rect x="250.0" y="135.88" width="106.62222877358391" height="30.240000000000002" rx="3" fill="#8fd0ac"/>
-<text x="236" y="150.0" text-anchor="end" font-size="13" font-weight="600" fill="#222">FastAhoCorasick — serial</text>
+<text x="236" y="150.0" text-anchor="end" font-size="13" font-weight="600" fill="#222">AhoCorasickILP — serial</text>
 <text x="236" y="165.0" text-anchor="end" font-size="10.5" fill="#999">Julia · this package</text>
 <text x="364.6222287735839" y="155.0" font-size="12" font-weight="600" fill="#333">0.153 ms</text>
 <text x="364.6222287735839" y="169.0" font-size="10" fill="#aaa">5.7× slower</text>

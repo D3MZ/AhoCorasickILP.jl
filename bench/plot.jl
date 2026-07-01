@@ -4,8 +4,8 @@
 
 # label, milliseconds, colour, sublabel
 rows = [
-    ("FastAhoCorasick — ILP ×8", 0.0269, "#159a56", "Julia · this package"),
-    ("FastAhoCorasick — serial", 0.1530, "#8fd0ac", "Julia · this package"),
+    ("AhoCorasickILP — ×8 streams", 0.0269, "#159a56", "Julia · this package"),
+    ("AhoCorasickILP — serial", 0.1530, "#8fd0ac", "Julia · this package"),
     ("Rust  aho-corasick 1.1",   0.2263, "#c46a3f", "Rust crate"),
     ("AhoCorasick.jl 0.1.1",     2200.0, "#9aa0a6", "Julia · registry (O(n²))"),
 ]

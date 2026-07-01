@@ -1,7 +1,7 @@
 # API reference
 
 ```@docs
-FastAhoCorasick
+AhoCorasickILP
 Automaton
 AcMatch
 build
