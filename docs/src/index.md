@@ -40,7 +40,9 @@ instruction-level parallelism on a single thread, not multithreading. Exactness 
 seams is preserved by replaying each boundary from the true entering state.
 
 See the [README](https://github.com/D3MZ/FastAhoCorasick.jl#how-it-works) for the full write-up
-and benchmark plot, and the [API reference](@ref) for the functions.
+and benchmark plot, [Comparison](comparison.md) for how it stacks up against Rust's
+`aho-corasick` and the registry's `AhoCorasick.jl`, and the [API reference](@ref) for the
+functions.
 
 ## [API reference](@id api)
 

@@ -12,6 +12,7 @@ makedocs(
     ),
     pages = [
         "Home" => "index.md",
+        "Comparison" => "comparison.md",
         "API" => "api.md",
     ],
     checkdocs = :exports,
